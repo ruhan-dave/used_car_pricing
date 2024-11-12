@@ -10,7 +10,15 @@ import xgboost as xgb
 from st_files_connection import FilesConnection
 from io import BytesIO
 import boto3
-# from io import StringIO
+import streamlit as st 
+from st_files_connection import FilesConnection
+import pandas as pd 
+import numpy as np
+import pickle
+import json
+import xgboost as xgb
+import sklearn
+import feature_engine
 
 # title of the Web App
 st.title("See how much your car is worth NOW in just a minute!")
@@ -21,10 +29,11 @@ st.write("Specify your car information below:")
 # model_path = "/Users/owner/Desktop/data_science/ml_course/aipi510/assignment9/xgbr_model.pkl"
 
 bucket_name = 'churn-challenge'
+file_key = 'churn-challenge/x_train.csv'
 
 conn = st.connection('s3', type=FilesConnection)
-df = conn.read("churn-challenge/x_train.csv", ttl=600)
 
+df = conn.read("churn-challenge/x_train.csv", input_format="csv", ttl=600)
 s3 = boto3.resource('s3')
 
 with BytesIO() as file:
