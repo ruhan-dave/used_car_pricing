@@ -1,49 +1,52 @@
-import streamlit as st
-import pandas as pd
+
+import streamlit as st 
+from datetime import datetime
+import pandas as pd 
 import numpy as np
+# import scipy as sp
 import pickle
-import boto3
-from io import BytesIO
+# import datetime as dt
+import json
+import xgboost as xgb
 from st_files_connection import FilesConnection
+from io import BytesIO
+import boto3
+# from io import StringIO
 
-
-@st.cache_resource
-def get_s3_client():
-    return boto3.client(
-        "s3",
-        aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"],
-        region_name=st.secrets.get("AWS_REGION", "us-west-1")
-    )
-
-@st.cache_data
-def load_file_from_s3(bucket_name, file_key):
-    s3_client = get_s3_client()
-    with BytesIO() as file_obj:
-        s3_client.download_fileobj(bucket_name, file_key, file_obj)
-        file_obj.seek(0)
-        return pickle.load(file_obj)
-
-@st.cache_data
-def load_csv_from_s3(connection, file_path):
-    return connection.read(file_path, ttl=600)
+# title of the Web App
+st.title("See how much your car is worth NOW in just a minute!")
+st.subheader("This application predicts the price of your vehicle in just a minute, with minimal information provided. Note that results are only estimations and real-world numbers differ case-by-case.")
+st.write("Specify your car information below:")
 
 bucket_name = 'churn-challenge'
+
 conn = st.connection('s3', type=FilesConnection)
+df = conn.read("churn-challenge/x_train.csv", ttl=600)
 
-df = load_csv_from_s3(conn, f"{bucket_name}/x_train.csv")
-processor = load_file_from_s3(bucket_name, "preprocessor.pkl")
-model = load_file_from_s3(bucket_name, "xgbr_model.pkl")
+s3 = boto3.resource('s3')
 
-# User input collection function
+with BytesIO() as file:
+   s3.Bucket("churn-challenge").download_fileobj("preprocessor.pkl", file)
+   file.seek(0)    # move back to the beginning after writing
+   processor = pickle.load(file)
+
+with BytesIO() as mod:
+   s3.Bucket("churn-challenge").download_fileobj("xgbr_model.pkl", mod)
+   mod.seek(0)    # move back to the beginning after writing
+   model = pickle.load(mod)
+
+# transform the user_input as we have been transforming the data as before
+import streamlit as st
+import pandas as pd
+
 def user_inputs(df):
     brand = st.selectbox("Select Brand", df["brand"].unique())
-    model = st.selectbox("Select Model", df[df['brand'] == brand]["model"].unique())
-    model_year = st.slider("Model Year", min_value=2000, max_value=2024, step=1)
+    model = st.selectbox("Select Model", df["model"].unique())
+    model_year = st.number_input("Model Year", min_value=2000, max_value=2024, step=1)
     milage = st.number_input("Mileage", min_value=0, step=1000)
     fuel_type = st.selectbox("Select Fuel Type", df["fuel_type"].unique())
-    engine = st.selectbox("Select Engine", df[(df['fuel_type'] == fuel_type) & (df['model'] == model)]["engine"].unique())
-    transmission = st.selectbox("Select Transmission", df[df['engine'] == engine]["transmission"].unique())
+    engine = st.selectbox("Select Engine", df["engine"].unique())  
+    transmission = st.selectbox("Select Transmission", df["transmission"].unique())
     accident = st.selectbox("Accident History", ["Yes", "No"])  # Assuming binary options
 
     data = {
@@ -56,36 +59,29 @@ def user_inputs(df):
         'transmission': transmission,
         'accident': accident
     }
-    return pd.DataFrame(data, index=[0])
 
-# Transform data using the loaded processor
-def data_transform(input_df, processor):
-    return processor.transform(input_df)
+    df = pd.DataFrame(data, index=[0])
+    return df
 
-# Predict with the loaded model
-def predict_price(model, transformed_data):
-    output = np.rint(model.predict(transformed_data))
+def data_transform(df, processor):
+    return processor.transform(df)
+
+# Predict with the model 
+def predict(model, transformed):
+    output = np.rint(model.predict(transformed))
     return output
 
-# Main application with buttons and sliders
 def main():
-    st.title("How much $ is your car NOW?")
-    st.write("This application predicts the price of your vehicle in just a minute, with minimal information provided. Note that results are only estimations and real-world numbers differ case-by-case.")
+    # A confirmation so the user knows what the input row looks like
+    x_input = user_inputs(df)
 
-    # Collect user inputs
-    user_data = user_inputs(df)
-
-    # When the "Find out" button is pressed
+    # design user interface
     if st.button("Find out"):
-        # Transform user data and make prediction
-        transformed_data = data_transform(user_data, processor)
-        predicted_price = predict_price(model, transformed_data)[0]
+        transformed = data_transform(x_input, processor)
+        prediction = predict(model, transformed)
+        st.subheader("Estimate based on your inputs:")
+        # here, define more informative statements, such as recommended actions, cautions, statistics you want to include, etc...
+        st.write(f"{prediction}") # customize this 
         
-        # Display the predicted price in a formatted style
-        st.markdown(
-            f"<div style='text-align: center; font-size: 24px; font-weight: bold; color: green;'>Predicted Price: ${round(predicted_price / 1000)}k</div>",
-            unsafe_allow_html=True
-        )
-
 if __name__ == "__main__":
     main()
