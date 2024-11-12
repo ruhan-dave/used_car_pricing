@@ -9,7 +9,6 @@ from st_files_connection import FilesConnection
 from io import BytesIO
 import boto3
 import sklearn
-import feature_engine
 
 # title of the Web App
 st.title("See how much your car is worth NOW in just a minute!")
