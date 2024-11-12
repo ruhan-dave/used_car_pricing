@@ -1,4 +1,3 @@
-
 import streamlit as st 
 from datetime import datetime
 import pandas as pd 
@@ -18,6 +17,9 @@ st.title("See how much your car is worth NOW in just a minute!")
 st.subheader("This application predicts the price of your vehicle in just a minute, with minimal information provided. Note that results are only estimations and real-world numbers differ case-by-case.")
 st.write("Specify your car information below:")
 
+# processor_path = '/Users/owner/Desktop/data_science/ml_course/aipi510/assignment9/preprocessor.pkl'
+# model_path = "/Users/owner/Desktop/data_science/ml_course/aipi510/assignment9/xgbr_model.pkl"
+
 bucket_name = 'churn-challenge'
 
 conn = st.connection('s3', type=FilesConnection)
@@ -35,9 +37,6 @@ with BytesIO() as mod:
    mod.seek(0)    # move back to the beginning after writing
    model = pickle.load(mod)
 
-# transform the user_input as we have been transforming the data as before
-import streamlit as st
-import pandas as pd
 
 def user_inputs(df):
     brand = st.selectbox("Select Brand", df["brand"].unique())
