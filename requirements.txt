@@ -1,6 +1,6 @@
 numpy
-s3fs
 streamlit
+s3fs
 pandas
 boto3
 st-files-connection
